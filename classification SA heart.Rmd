@@ -1,0 +1,255 @@
+---
+title: "Final Project"
+author: "Eugeniah Arthur"
+date: "May 10, 2019"
+output:
+  html_document:
+    code_folding: show
+    theme: lumen
+    toc: yes
+    toc_float: yes
+  word_document:
+    toc: yes
+---
+
+
+## Title of Report
+
+### Introduction
+
+
+### Methods and results
+I will be exploring various methods for classifying whether an individual had coronary heart disease or not  based on the other variables  in the SA heart data.But firstly, I need to do exploratory analysis of the data.
+
+##Exploratory Data Analysis
+```{r}
+library(ElemStatLearn)
+library(corrplot)
+sadata=SAheart
+str(sadata)
+i <- complete.cases(sadata)
+sadata<- sadata[i, ]
+summary(sadata)
+sadata$chd=as.factor(sadata$chd)
+summary(sadata)
+```
+The result of the summary shows that all our variables are numeric except for family history and chd which are factors and integer variables respectively.Therefore, the chd was recoded as factor in order to be used for the classification.The complete.cases function was used to ensure that there are no missing values.
+
+#Plots
+
+```{r}
+s=sadata[,c(-5,-10)]
+r=cor(s)
+corrplot(r)
+par(mfrow=c(2,2))
+boxplot(sadata$sbp~sadata$chd)
+boxplot( sadata$tobacco~sadata$chd)
+boxplot(sadata$ldl~sadata$chd)
+boxplot(sadata$adiposity~sadata$chd)
+
+boxplot(sadata$typea~sadata$chd)
+boxplot(sadata$obesity~sadata$chd)
+boxplot(sadata$alcohol~sadata$chd)
+boxplot(sadata$age~sadata$chd)
+
+```
+
+A look at the correlation plot shows there is a very weak linear relationship between the variables with few exceptions. It is seen that age has a fairly strong linear relationship with tobacco and adiposity. The strongest linear relationship is however seen between obesity and adiposity.
+  Also, a look at the boxplots of the other variables with chd shows sbp,tobacco, ldl,adiposity,age was higher in those who had coronary heart disease than in those who did not. But there did not seem to be much difference in the distribution of   alcohol consumption, obesity and Type A behavior in those with chd and without. Though there were a few outliers in some of the plots. Another observation worth noting is that the age of people with chd seeme to be symmetric with median age of 40 whereas the age of those with chd was skewed left with a median age around 55 with an individual with age below 20. 
+#Setting train and test data
+```{r}
+set.seed(1)
+train = sample(1:nrow(sadata),300)
+test = -train
+strain=sadata[train,]
+stest=sadata[test,]
+
+
+```
+
+##Logistic Regression
+A logistic regression model is done because our response is binary and not continuous.
+```{r}
+library(glmnet)
+library(e1071)
+chdtest=stest$chd
+u=glm(chd~.,data=strain, family="binomial")
+summary(u)
+gprobs=predict(u,stest,type="response")
+gpred=rep("0",162)
+gpred[gprobs>0.5]="1"
+table(gpred,chdtest)
+
+unlist(classAgreement(table(gpred,chdtest)))
+```
+The result of the logistic regression using all the variables as predictors shows that tobacco, ldl, family history,type A behavior and age were significant to the model.  The log odds of this model is $$\log{\dfrac{p_i}{1-p_i}}=-5.5+0.094\text{tobacco} +0.1760\text{ldl}+0.9459\text{famhistPresent}+0.033416\text{typea }$$.  
+The prediction table shows that the model misclassified 28 people with chd as not having chd and 25 people who did not have chd as having chd. The class agreement shows a high diagonal value of 0.672. However, the kappa value which is the adjusted value is 0.267 which is pretty low.The rand value of 0.557 also is fairly high.
+
+##Linear Discriminant Analysis.   
+The LDA method assumes that the data set has a common variance and the variance follows a normal distribution. 
+  
+```{r}
+library(MASS)
+set.seed(1)
+lda.fit <- lda(chd~., data =strain)
+lda.fit
+plot(lda.fit)
+lda.pred <- predict(lda.fit,stest)
+names(lda.pred)
+lda.class <- lda.pred$class
+tabLDA <- table(lda.class,chdtest)
+tabLDA
+classAgreement(tabLDA)
+```
+The LDA method shows that the prior probabilities of the not having CHD is 65%. whereas the probability that an individual had CHD is 35%. The confusion matrix of the prediction shows the model misclassified 29 of those having CHD as not having and 20 of those not having chd as having.  
+The class Agreement has a kappa value of 0.30 which is relatively higher than the logistic regression model but still not very good. Obesity has a negative coefficient which shows it lowers the log odds.
+  
+##QDA method.
+ This method though similar to the the lda methode assumes the covariance is not constant.
+```{r}
+set.seed(1)
+library(MASS)
+qfit = qda(chd~., data =strain)
+qfit
+
+qclass = predict(qfit,stest)$class
+tabqda = table(qclass,chdtest)
+tabqda
+unlist(classAgreement(tabqda))
+
+```
+This method misclassified 30 individuals who had chd as not having and 24 who did not have Chd as having. The kappa value is 0.24 and the crand agreement value is 0.094 .The QDA has worse test error rate than the LDA method.
+  
+##KNN model
+I used the KNN model on the preictors that were selected by the logistic regression model to check if the KNN model will do a better job than the logistic regression model
+
+```{r}
+library(class)
+chdtrain=strain$chd
+train.X=cbind(strain$tobacco,strain$ldl, strain$famhist,strain$typea, strain$age)
+test.X=cbind(stest$tobacco,stest$ldl, stest$famhist,stest$typea, stest$age)
+dim(test.X)
+set.seed(1)
+knn.pred = knn(train.X,test.X,chdtrain, k = 3)
+
+tabKNN1 = table(knn.pred, chdtest)
+tabKNN1
+unlist(classAgreement(tabKNN1))
+```
+The KNN model misclassified 29 people as not having chd when they did and 23 people as having chd when they did not. . it has a kappa value os 0.272 and a crand value of 0.111 showing that the model is just a little better than a random assignment.   
+
+###  Trees
+
+In this section, classification trees method  is to be used to classify the data into whether an individual had chd or not based on the predictors.
+
+```{r}
+library(tree)
+tr1=tree(chd~.,strain)
+summary(tr1)
+plot(tr1)
+text(tr1,pretty=0)
+
+tr.pred1=predict(tr1,stest,type="class")
+tab=table(tr.pred1,chdtest)
+classAgreement(tab)
+```  
+ The output shows that there wer 27 terminal nodes  and a training error rate of 31/300.The tree plot shows that when age is higher or lower than 50.5 years at onset is the first criterion used to split the model. Though, the tree is little mashed  up. it can be clearly seen that an individual who is less than 27.5 years is predicted not have a chd. Also, if the individual is older than 27.5 years but less than 50.5 years and has a low density lipoprotein cholesterol of less than 3.28, then the individual is also predicted to have chd. However, if the individual has ldl more than 3.28 and has a type A behavior of more than 68.5 then the individual is predicted to have chd. The class agreement has a Kappa value of 0.1534.
+ 
+#Prunned tree
+```{r}
+set.seed(3)
+cv <- cv.tree(tr1, FUN = prune.misclass)
+plot(cv)
+cv
+pruned <- prune.tree(tr1, method="misclass")
+
+pruned
+best.size=cv$size[which(cv$dev==min(cv$dev))] 
+best.size
+pruned1<- prune.tree(tr1, method="misclass", best=best.size)
+
+plot(pruned1)
+text(pruned1)
+plot(cv$size, cv$dev, type = "b", xlab = " Size", ylab = "Deviance")
+
+
+
+
+
+#test error rate
+
+set.seed(1)
+prer= predict(pruned1, stest, type = "class")
+pr=table(chdtest,prer)
+classAgreement(pr)
+
+
+```
+
+
+The result of the prunned tree shows that the size of the tree that gives the lowest classification rate was 3. Therefore, we cut our model to get three nodes. The tree plot showed that when age is less than 50.5, an individual would not have chd but the individual had an age greater than 50.5 years and had a cumulative tobacco of more than 1.725, then the individual was predicted to have chd.  The error rate has kappa of 0.166 and crand 0f 0.0577 which is slightly better than random assignment.The prunned tree gives a relatively better classification rate than the use of all the variables. However, it still did not give an error rate better than the logistic regression model.
+
+#Bagging Method
+
+```{r}
+library(randomForest)
+set.seed(1)
+bg1 <- randomForest(chd ~ ., data=strain, 
+    mtry = 9, importance = TRUE)
+bg1
+#summary(bg1)
+#importance(bg1)
+varImpPlot(bg1)
+bagpred = predict(bg1, newdata = stest, type="class")
+bt <- table(sadata[test, "chd"], bagpred)
+classAgreement(bt)
+## diagonal agreement
+sum(diag(bt)) / sum(bt)
+## misclassification rate
+bgerr <- sum(bt[1, 2] + bt[2, 1]) / sum(bt)
+bgerr
+```
+The bagging method simulated 500 trees and the OOB error rate was 28%. The variable importance plot shows that tobacco, age and ldl were the most important variables that decreased the mean gini index. 
+
+The class Agreement has a Kappa of 16% and crand of 5% which is relatively low.
+
+#randomforest
+```{r}
+set.seed(1)
+library(randomForest)
+set.seed(2)
+bgr <- randomForest(chd ~ ., data=strain, 
+    mtry =3, importance = TRUE)
+bgr
+#summary(bgr)
+#importance(bgr)
+varImpPlot(bgr)
+bagpred2 = predict(bgr, newdata = stest, type="class")
+bt <- table(sadata[test, "chd"], bagpred2)
+classAgreement(bt)
+```
+The random forest also chooses tobacco, age and ldl as the most important models. The class Agreement is however worst than the bagging method. 
+
+
+#Boosting Method
+
+### Summary
+
+Summarize your results here.
+
+### References
+
+Your textbook any others used for the project.
+
+Cite any packages NOT used in the textbook.
+
+Okay to omit citations for packages used in the textbook.
+
+### Appendix (optional)
+
+If you have used external R scripts, copy them here using the preformatted environment:
+
+```
+   ## some R code that should not be executed
+```   
+
