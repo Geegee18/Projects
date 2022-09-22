@@ -1,0 +1,342 @@
+---
+title: "Final Project"
+author: "Eugeniah Arthur"
+date: "May 10, 2019"
+output:
+  html_document:
+    code_folding: show
+    theme: lumen
+    toc: yes
+    toc_float: yes
+  word_document:
+    toc: yes
+---
+
+### Title
+A predictive model to ascertain the relationship between Spine bone mineral density and other variables  of North American Adolescents in the Bone Data.
+
+### Introduction
+
+It is a well known fact that there exist a  relationship between the features of bone  and the age of an object. This is what acheological studies is based on. For years, the age and possibly gender of ancient objects have  been determine through  information gotten from bones.As Andrea  Waters-Rist writes in her course description on coursera:"  Archaeology and anthropology enables us  gain unique insights into the past and the present through the study of human skeletal remains. Therefore, for this study, I took the bone data on ElemStatLearn in R to investigate the relationship between age, bone mineral density and gender. The data consist of measurements in bone mineral density of 261 north american adolescents who made two consecutive visits to the hospital. The data has the average ages over the  two visits ,  gender of the adolescents( factor: Female=1, Male=2) and the Id number of the individuals to show the repeated measurements.  
+According to an article by NIH Osteoporosis and related bone diseases national research center titled Bone Mass Measurement: What the Numbers Mean, the relative bone density test measures an individuals bone density and compares it to that of a healthy individual( an established norm) to give a score.The score is like a standard deviation. A zero score shows that your bone mineral density is as good as a healthy individual. However, a score below 0 shows a weaker bone density and hence a higher risk of fracture.  
+  The original source of the data is from Bachrach et al who first gathered this data in 1999 for their support grant project. I would like to explore the relationship between these variable. 
+   
+##Objectives of the study
+
+1. To investigate the relationship among the variables
+2.  To find the best model to predict bone mineral density  using other variables as predictors
+
+### Methods and results
+
+In order for me to execute my first objective, I explored and cleaned my data to make sure that it was suitable for the various models I wanted to use. 
+
+##Exploratory Data Analysis
+```{r}
+library(ElemStatLearn)
+library(corrplot)
+```
+
+```{r}
+
+b=na.omit(bone)
+str(b)
+head(b)
+summary(b)
+```
+
+
+The summary of the data shows that some data were repeated  with Idnum showing the repetition. The minimum age is 9.4 years and the maximum age is 25.55 years. With all the repeated measures, we had 259 males and 226 females . Also, the bone mineral density of the adolescents ranged from -0.064 and 0.2199.  
+
+##Plots
+```{r}
+par(mfrow=c(2,2))
+plot(b$spnbmd,b$age)
+boxplot(b$age~b$gender, col="bisque ")
+boxplot(b$spnbmd~b$gender, col="blue")
+
+```
+     The plot of the age with spnmbd shows a  curved shape which gives a hint of a nonlinear relationship. Also, there was not much difference between the distribution of age in both genders.The difference in the distribution of bone mineral density in both genders was very little.   
+
+
+   
+Since the data set had unequal number of revists of the adolescents, I decided to find the mean of the variables of each individual who revisited. And use those new variables for my model.  
+
+
+```{r}
+library(dplyr)
+
+b$gender=as.numeric(as.factor(b$gender))
+dd=group_by(b, idnum) %>% summarize(meanspnbmd = mean(spnbmd),meanage=mean(age), ngender=max(gender))
+
+summary(dd)
+str(dd)
+head(dd)
+newdata=dd
+
+head(newdata$ngender)
+newdata$ngender=as.factor(as.numeric(newdata$ngender))
+str(newdata)
+
+
+```
+
+```{r}
+par(mfrow=c(2,2))
+plot(newdata$meanspnbmd,newdata$meanage)
+boxplot(newdata$meanage~newdata$ngender, col="bisque ")
+boxplot(newdata$meanspnbmd~newdata$ngender, col="blue")
+
+```
+     A plot of the newdata shows the same results as before. However, it seems the distribution of the relative spinal bone mineral density in Males is  skewed with some outliers. Though, the median is the same for both males and females.After reorganising, I got 261 data points with new variable names.
+```{r}
+# Removing the idnum
+newdata=newdata[,-1]
+str(newdata)
+n=newdata[,c(1,2)]
+r=cor(n)
+r
+
+```
+
+
+  The scatterplot shows that there exist a negative correlation between meanage and the mean spnbmd.Thus, as age increases, the mean spinal bone density decreases. However, the relationship looks nonlinear. The correlation plot shows the relationship is around  -0.58 which is not very strong.   
+
+
+  Since one of my main objective is to find a good predictive model to measure the bone mineral density of an individual. I am splitting my data into train and test data so that I am able to compare the test errors of the various models.
+    
+##train and test data
+   
+```{r}
+set.seed(1)
+
+train = sample(1:nrow(newdata),132)
+btrain = newdata[train, ]
+btest = newdata[-train, ]
+nrow(btrain)
+nrow(btest)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+##Linear Model
+   Since there seems to be a negative correlation, I am going to check if a linear regression model is a good model for predicting  mean age 
+```{r}
+siml=lm( meanspnbmd~.,data= btrain)
+summary(siml)
+```
+  The linear regression model shows that the intercept and meanage is significant to the model. However, gender was not significant at all. The adjusted r square value , 0.361 which  is very low and shows the model may not be a good fit.
+    
+** Test error**
+```{r}
+cpred = predict(siml, btest)
+lmtesterr=mean((btest$meanspnbmd - cpred)^2)
+lmtesterr
+```
+** Linear Model Diagonistic**
+```{r}
+par(mfrow=c(2,2))
+plot(siml)
+
+```
+
+  From the model diagonistic, the residual verses fitted model shows that the erorrs are correlated and have a pattern.Hence, there is a problem of mutlicollinearity.The normal qq plot shows the residual errors deviates from the  normal distribution. The standardised verses leverage shows that there exist influential points .The scale location is also not horizontal and hence the covariance of the error terms are not constant (problem of heteroscedascticity). From the model diagnostics, it is realised that the model does not fit the assumptions of the linear regression model . Hence, we will try some polynomial models. 
+
+##Polynomial Regression
+From  the initial plot there seemed to exit a non linear relationship between the meanage and meanspmbn. We would use the cross validation method to fit a polynomial model for the data.
+ 
+```{r}
+library(boot)
+set.seed(1)
+cv = rep(0,10)
+for (i in 1:10) {
+    glm.fit = glm(meanspnbmd ~ poly(meanage, i)+ ngender, data = btrain)
+    cv[i]=cv.glm(btrain, glm.fit, K = 10)$delta[1]
+}
+
+plot(1:10, cv, pch = 19, type = "b", xlab = "degree of polynomial", ylab = "CV estimate of the prediction error")
+grid()
+min.point = which.min(cv)
+min.point
+fit.cv= glm(meanspnbmd ~ poly(meanage,min.point)+ngender, data= btrain)
+
+summary(fit.cv)
+
+
+```
+
+  The cross validation method selected a polynomial of degree 4 to give the minimum error rate. Also, gender was not significant in the prediction of mean spinal bone density
+
+```{r}
+
+#Polynomial Test Error Rate
+lm.pred = predict(fit.cv, btest)
+testerr=mean((btest$meanspnbmd-lm.pred)^2)
+
+testerr
+
+```
+ The test MSE is relatively smaller than the linear model. 
+ 
+##Ridge Regression Model
+The ridge regrssion uses a criterion to shrink the variables that are not significant. However, it does not do variable selection as the lasso model that forces all the insignificnt variables to zero.  
+
+
+```{r}
+library(glmnet)
+xtrain=model.matrix(meanspnbmd~ngender+ poly(meanage,5), btrain)
+xtest=model.matrix(meanspnbmd~ngender+poly(meanage,5), btest)
+ytrain=btrain$meanspnbmd
+ytest=btest$meanspnbmd
+set.seed(1)
+rm=cv.glmnet(xtrain,ytrain, alpha=0)
+blam=rm$lambda.min
+blam
+# The test error is given as
+rp=predict(rm, s=blam, newx=xtest)
+rtestmse=mean((rp-ytest)^2)
+rtestmse
+```
+For the ridge regression, the lambda value that gave the minimum MSE was 0.0026. The test error of the ridge regression was 0.00121. Which is relatively low.
+
+##Lasso model
+```{r}
+set.seed(1)
+lassomod=cv.glmnet(xtrain,ytrain, alpha=1)
+blasm=lassomod$lambda.min
+blasm
+lassopr=predict(lassomod,s=blasm,newx=xtest)
+lassterr=mean((lassopr-ytest)^2)
+ lassterr
+#lasso model
+predict(lassomod, s=blasm, type="coefficients")
+
+#
+```
+The lasso model chose the best shrinkage method lambda as 0.0009333. During its variable selection, it forced the coefficient of the intercept to zero. The lasso model had a test error rate of 0.001014 which is relatively small. 
+
+
+##Spline Models
+ Since there seems to be some nonlinear relationship between meanage and meanspnbmd, I explored some other non linear plots.
+
+This is a plot predicting the relative spinal bone density using age for the two genders. This is a plot seen in the book  Elements of Statistical learning.
+```{r}
+plot(spnbmd ~ age, data=bone, col = 
+     ifelse(gender=="male", "green", "red2"), 
+     xlab="Age", ylab="Relative Change in Spinal BMD")
+bone.spline.male <- with(subset(bone,gender=="male"),
+                smooth.spline(age, spnbmd,df=12))
+bone.spline.female <- with(subset(bone, gender=="female"), 
+                smooth.spline(age, spnbmd, df=12))
+lines(bone.spline.male, col="green")
+lines(bone.spline.female, col="red2")
+legend(20,0.20, legend=c("male", "Female"), col=c("green", "red2"), 
+          lwd=2)
+```
+ 
+ 
+This plot showed that the relative change in spinal BMD was higher in younger females than males which reduces as age increase. However, after age 20, the relative change in BMD becomes the same in both genders.    
+
+##Smooth scatter
+```{r}
+par(mfrow=c(2,2))
+scatter.smooth(bone$spnbmd,bone$age)
+scatter.smooth(newdata$meanspnbmd,newdata$meanage)
+smoothScatter(newdata$meanspnbmd,newdata$meanage)
+```
+   
+   These plots show that there exist a non linear relationship between the meanspnbmd and the meanage.There seemed to be a  change around a mean relative change in spinal bone at  0.025 and at age 15.
+   
+   
+  
+##GAM model
+
+```{r}
+library(gam)
+
+library(akima)
+
+gal = lm(meanspnbmd ~ ns(meanage, 4) , data = btrain)
+gam1= gam(meanspnbmd ~ s(meanage, 4) , data = btrain)
+anova(gal, gam1, test = "F")
+summary(gam1)
+preds = predict(gam1, newdata = btest)
+gammse=mean((preds-ytest)^2)
+gammse
+plot(gam1, se = TRUE, col = "green")
+
+```
+
+
+  The output of the gam model showed that the coefficent of the polynomial of degree 4 was highly significant.
+  
+
+```{r}
+gamlo = gam(meanspnbmd~  lo(meanage, span = 0.7) , data = btrain)
+
+plot(gamlo, se = TRUE, col = "green")
+predslo = predict(gamlo, newdata = btest)
+gamlomse=mean((predslo-ytest)^2)
+gamlomse
+```
+    
+   
+##Comparism of TEST MSE  
+
+
+```{r, echo=FALSE}
+
+library(knitr)
+d <- data.frame(cbind(lmtesterr, testerr,rtestmse, lassterr,gammse,gamlomse))
+row.names(d) <-  c("Test Errors")
+colnames(d) <-  c("Linear Model", "Polynomial Regression ", "Ridge Regression","Lasso Model","Generalised Additive Model","LOESS")
+kable(d,digits=7)
+
+
+
+```
+     
+     
+     
+  Comparing the test MSE of each of the models used it is realised that all of them are relatively low with the heighest test mse being the linear model. This may be due to the fact that the assumptions of the linear model were violated. The polynomial regression gave the lowest test MSE. Therefore, The polynomial regression model is selected as the best model to predict the meanspnmb.  
+
+     
+         
+### Summary
+
+  The aim of this study was to ascertain the relationship between the variables in the bone data and to find the best model to predict the spine bone mineral density.However, since the data was contained uneven visits by individuals. I decided to use the mean of the repeated measures.   
+After the data was reorganised into the mean of the variables for each individual, it was realised that there existed a relationship between the age and spinal bone mineral density of the adolescents. However, there was not much difference in the bone mineral density of each gender. Also, there was no difference in the distribution of age in both genders.  
+
+
+The data was then split into equal sized train and test data, 132. 
+
+After the analysis, it was realised there existed a nonlinear negative relationship between bone density and age.The polynomial regression model chose a polynomial of degree 4 as the best model.
+
+The results showed that there was a change in the  spinal BMD around age  15.
+ 
+ All the models showed that gender was not a significant factor in predicting bone mineral density. Thus, there was no significant difference in the bone mineral density of both genders.  
+
+
+##Conclusion
+With regards to the objective of this study.
+
+1. Age was the only significant variable in the prediction of spinal bone mineral density.Age and spinal BMD had a negative nonlinear association.
+
+2. The model with the lowest Test error rate and hence best for the prediction was the polynomial model with degree 4.
+
+
+
+### References
+Andrea W., ://www.coursera.org/learn/truthinourbones-osteoarchaeology-archaeology
+
+Kjetil B. Halvorsen (2019). ElemStatLearn: Data Sets, Functions and Examples from the Book: “The Elements of Statistical Learning, Data Mining, Inference, and Prediction” by Trevor Hastie, Robert Tibshirani and Jerome Friedman. R package version 2015.6.26.1. https://CRAN.R-project.org/package=ElemStatLearn
+
