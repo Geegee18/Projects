@@ -1,0 +1,769 @@
+---
+title: "Insights For An HR Manager Using Statistical  Graphics Techniques"
+author: "Eugeniah Arthur"
+date: "November 19,2022"
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    code_folding: show
+    theme: lumen
+    toc: yes
+    toc_float: yes
+  word_document:
+    toc: yes
+---
+
+
+
+
+
+
+
+
+
+\newpage
+
+
+# Introduction
+
+## Background
+In recent years a lot of companies are concerned with diversity and inclusion in the demographics of their associates. A lot of studies have shown that a diverse group in the company helps with productivity and leads to more job satisfaction. There have been calls for inclusion with regards to especially gender and race. Furthermore, fairness in salary  is also another aspect in this movement that is  critically looked at by both Human resource managers and major stakeholders to ensure the company is upholding such standards. In this analysis, insights with regards to gender, race , salary and other factors in a human resource data set will be found using both statistical graphics and some sophisticated machine learning algorithms.
+
+## Objective
+1. Unravel insights from the gender, racial, absences and salary distribution of the data set
+2. Find the relationship between salary and these other key variables
+
+4. Find the most important factors that influence whether or not an individual's salary will be above the median
+
+
+
+## Data Source 
+The data was gotten from kaggle at this website.
+https://www.kaggle.com/datasets/rhuebner/human-resources-data-set. 
+The data was created by Richard Huebner and Dr. Carla Patalano.
+It has 36 columns and 311 observations. For this analysis, the following  variables will be of key interest: gender, race, married, performance scores,job position,department,absences, salary, recruitment source and  employment status.
+
+
+\newpage
+
+# Exploratory Data Analysis
+
+## Data Preprocessing
+
+```{r echo = FALSE ,include = FALSE}
+library(dplyr)
+library(ggplot2)
+library(SHAPforxgboost)
+library(xgboost)
+library(pROC)
+library(gridExtra)
+library(MASS)
+#HR <- data.frame( read.csv("C:/Users/eugarth/Downloads/HRDataset_v14.csv")) for office pc
+HR <- data.frame(read.csv("~/Documents/PythonWorks/HRDataset_v14.csv"))
+
+```
+
+
+## Data Cleaning
+Under data cleaning, the key features were selected. Also, the original job position variable was not well specified so it was cleaned to return the right jobs.
+
+```{r echo = FALSE  ,include= FALSE}
+final_data <- data.frame(gender=factor(HR$GenderID),married=factor(HR$MarriedID),salary=HR$Salary,performance_score=factor(HR$PerformanceScore),absences=HR$Absences,job=factor(HR$Position),recruitment_source= factor(HR$RecruitmentSource),empstatus=factor(HR$EmploymentStatus), department=factor(HR$Department),race=factor(HR$RaceDesc))
+
+# Recode factor levels by name
+levels(final_data$performance_score) <- list(Exceeds="Exceeds", NI = "Needs Improvement", Meets="Fully Meets",Pip="PIP")
+
+
+#table(final_data$job,final_data$married)
+final_data$job[250]="Data Analyst" ## This is done because the factor was not well assigned
+#final_data[which(final_data$job=="Data Analyst"),]
+final_data$job <- droplevels(final_data$job)
+dim(final_data)
+#summary(final_data)
+```
+## Univariate plots 
+
+### Distribution of salary
+ The histogram of the salary data set was plotted using different bin widths. The epanechnikov density was overlayed on it to show the density of the salary data.
+ 
+```{r echo = FALSE}
+
+
+
+salary_val <- final_data$salary/10000
+
+inc12<-(max(salary_val)-min(salary_val))/12.
+brk12<-min(salary_val)+(0:12)*inc12
+den_val<-density(salary_val,kernel= "epanechnikov")
+
+## Doane's
+meanval<-mean(salary_val)
+nval<-length(salary_val)
+devval<-salary_val-meanval
+m2<-sum(devval*devval)/nval
+m3<-sum(devval*devval*devval)/nval
+c1<-m3/sqrt(m2^3)
+c1<-c1*sqrt((nval+1)*(nval+3)/(6.*(nval-2.)))
+doane_rule<-ceiling(1+(log(nval)+log(1+c1))/log(2))
+incdoane<-(max(salary_val)-min(salary_val))/doane_rule
+doane_break<-min(salary_val)+(0:doane_rule)*incdoane
+
+
+## Robust Rule of 12
+iqr<-quantile(salary_val,0.75)-quantile(salary_val,0.25)
+inc12r<-4.45*iqr/12.
+em12r<-ceiling((max(salary_val)-min(salary_val))/inc12r)
+brk12r<-min(salary_val)+(0:em12r)*inc12r
+
+
+val<-ceiling(1+log(length(salary_val))/log(2))
+sturges<-(max(salary_val)-min(salary_val))/val
+brksturges<-min(salary_val)+(0:val)*sturges
+
+par(mfrow=c(2,2))
+hist(salary_val,breaks=brk12,freq=FALSE,main="Rule of Twelve",
+xlab="Salary for Workers",
+ylab="Relative Frequency",ylim=c(0,0.4))
+lines(den_val$x,den_val$y,lwd=1.5)
+
+
+hist(salary_val,breaks=brk12r,freq=FALSE,
+main="Robust Rule of Twelve",xlab="Salary for Workers",
+ylab="Relative Frequency",ylim=c(0,0.4))
+lines(den_val$x,den_val$y,lwd=1.5)
+
+hist(salary_val,breaks=brksturges,freq=FALSE,main="Sturges' Rule",xlab="Salary for Workers",
+ylab="Relative Frequency",ylim=c(0,0.4))
+lines(den_val$x,den_val$y,lwd=1.5)
+
+hist(salary_val,breaks=doane_break,freq=FALSE,main="Doane's Rule",xlab="Salary for Workers",
+ylab="Relative Frequency",ylim=c(0,0.4))
+lines(den_val$x,den_val$y,lwd=1.5)
+
+```
+The Robust rule of twelve gives a great depiction of the distribution of the salary. 
+The salary variable will be explored to see more trends in the data. 
+The epanchnikov plot does a great job at fitting the kernel of the  distribution . Even though it was not able to hit the high frequencies in the highest bin.
+THe median salary is 62180. 
+
+```{r echo=FALSE}
+par(fin=c(4.00,4.00),pin=c(4.00,4.00),
+mai=c(0.85,0.85,0.25,0.25),xaxs="r",bty="n")
+#
+ggplot(final_data,aes(x=salary_val))+
+  geom_boxplot(aes(fill="blue9"))+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),legend.position = "none")+
+  ggtitle("Salary for Workers")
+median(final_data$salary)
+sum(ifelse(salary_val >10,1,0))
+```
+
+The distribution of the salary of workers is skewed right and this is typical of most salary data set. The data  has clusters in them showing different groupings. This may be as a result of the various positions held by the people in the company. 
+
+The typical salary is about 63000 per yer with some salary  as high as 250000.The outliers are from about 100000. There are about 25 people in this company that have pay more than 100000.
+
+
+
+There is very little spread in the data with a lot of outliers at the upper tail. 
+Aside the outliers, the salary  seems to be perfectly symmetric . 
+
+
+#### Transforming the salary data
+
+```{r echo = FALSE }
+
+## Testing if Salary is normally distributed
+data <- final_data
+
+par(mfrow=c(2,2))
+qqnorm(data$salary, main ="QQ plot of salary")
+qqline(data$salary)
+
+b <- boxcox(lm(data$salary~ 1))
+# Exact lambda
+
+lambda <- b$x[which.max(b$y)]
+lambda
+
+
+trans_salary<- 1/data$salary^2
+qqnorm(trans_salary,main="QQ plot of transformed data")
+qqline(trans_salary)
+hist(trans_salary, main="Histogram of transformed salary data")
+```
+
+The  qq plot of the original salary data shows that it is not normally distributed and hence to normalize this we use the box cox transformation to find the best way to do this, the optimal lambda is -1.8 which is almost -2. Hence, we use the transformation 1/x^2. 
+The transformed data looks normally distributed and hence this transformed data can be used for further analysis 
+
+### Distribution of factor variables 
+```{r echo = FALSE, warning=FALSE}
+par(fin=c(4.00,4.00),pin=c(4.00,4.00),
+mai=c(0.85,0.85,0.25,0.25),xaxs="r",bty="n")
+#
+plot_data <- final_data[,-c(which(colnames(final_data)=="job"),which(colnames(final_data)=="recruitment_source"))]
+vars <- plot_data  %>% select_if(is.factor) %>% colnames
+my_plots_list <- lapply(vars, function(i){
+  ggplot(plot_data , aes_string(x =plot_data[, i] )) +
+ geom_bar(aes(fill=plot_data[, i]) )+
+ xlab(i) +
+ theme(axis.text.x = element_text(angle = 90, hjust = 1, size=2)
+        ,legend.position = "none")+
+   scale_fill_discrete(name = i)+
+   coord_flip()
+})
+
+gridExtra::grid.arrange(grobs = my_plots_list, ncol = 2)
+```
+
+
+```{r echo = FALSE}
+#windows(width=4.5,height=4.5,pointsize=12)
+par(fin=c(4.00,4.00),pin=c(4.00,4.00),
+mai=c(0.85,0.85,0.25,0.25),xaxs="r",bty="n")
+#
+plot_data <- final_data[,c(which(colnames(final_data)=="job"),which(colnames(final_data)=="recruitment_source"))]
+vars <- plot_data  %>% select_if(is.factor) %>% colnames
+my_plots_list <- lapply(vars, function(i){
+  ggplot(plot_data , aes_string(x =plot_data[, i] )) +
+ geom_bar(aes(fill=plot_data[, i]) )+
+ xlab(i) +
+ theme(axis.text.x = element_text(angle = 90, hjust = 1, size=2)
+        ,legend.position = "none")+
+   scale_fill_discrete(name = i)+
+   coord_flip()
+})
+
+gridExtra::grid.arrange(grobs = my_plots_list, ncol = 2)
+```
+From the plots, the department with the most employees is the production department.There are a lot of production technicians compared to other jobs. Most individuals in this company meets expectation in terms of performance score. Furthermore, a lot of individuals were recruited through Indeed , followed by Linked In. The online web application was not very popular. The company is not very diverse. It has a large proportion of white folks. However, this demographics compared to a lot of other  companies in the world  looks somewhat better. Almost as many as half of the active individuals voluntarily terminated their job. There are more females than males in the organisation. Also, more than half of the individuals are not married.
+The dataset has very little diversity. Most of the race are white, with black or african american second almost a half of the number of whites in the group and there is almost  an equal distribution of both genders. Hispanic are the fewest people in this organization and they are all male.
+
+
+This informs me that the company is a production intensive company with lost of female workers.
+ 
+
+
+## Bivariate relationships
+
+###  Gender distribution based on race and department
+
+```{r echo = FALSE}
+
+par(fin=c(4.00,4.00),pin=c(4.00,4.00),
+mai=c(0.85,0.85,0.25,0.25),xaxs="r",bty="n")
+#
+
+p_gender_department <- ggplot(final_data,aes(x=department,fill=gender)) +
+  geom_bar(position="fill")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  coord_flip()
+
+
+p_race <- ggplot(final_data,aes(x=race,fill=gender) )+
+  geom_bar(position="fill")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  coord_flip()
+grid.arrange(grobs=list(p_gender_department,p_race),ncol=1)
+```
+
+
+There are more females in the production department.  The leader who makes up the executive office is a female.There seems to be a 50- 50 proportion of each gender group in each race except hispanics who are all male. Also, in the IT/IS and sales team, there are more males than females. All the other department have more females. Sales have an equal proportion of gender.
+
+All the Hisanics are male. We have an equal proportion of gender for both the white and two or more races. For all the other races, we have more females.
+
+
+
+
+
+### Relationship between performance score and gender 
+```{r echo = FALSE}
+#table(final_data$race,final_data$performance_score)
+par(fin=c(4.00,4.00),pin=c(4.00,4.00),
+mai=c(0.85,0.85,0.25,0.25),xaxs="r",bty="n")
+#
+
+library(ggplot2)
+ggplot(final_data,aes(x=performance_score))+
+  geom_bar(aes(fill= race ))+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+ggplot(final_data,aes(x=performance_score))+
+  geom_bar(aes(fill= race ),position = "fill")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  ggtitle("Conditional Probablity Plot for Performance_score based on race")
+```
+From the dataset, a lot of the individuals fully meets expectation. The proportion of individuals that need improvement and are on the personal improvement program is quite few.
+
+Also, a large proportion of two or more races were in the PIP group relative to all the other performance score group. A large proportion of those that needed improvements were black. 
+
+A large proportion of american indians exceeded expectations relative to the other performance score groups and the others exceeded expectation. However, we should be mindful of their small numbers.
+
+### Distribution of race and job descriptions 
+
+```{r echo = FALSE}
+#table(final_data$race,final_data$job)
+par(fin=c(4.00,4.00),pin=c(4.00,4.00),
+mai=c(0.85,0.85,0.25,0.25),xaxs="r",bty="n")
+#
+p <- ggplot(final_data,aes(x=job))+
+  geom_bar(aes(fill=race))+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+coord_flip()+
+  ggtitle("Distribution of Race and Job")
+
+# Get data from the graph
+p_dt <- layer_data(p) # or ggplot_build(p)$data
+
+p + annotate(geom = "text", label = p_dt$count, x = p_dt$x, y = p_dt$y-0.5,
+                  size = 2 )
+par(fin=c(4.00,4.00),pin=c(4.00,4.00),
+mai=c(0.85,0.85,0.25,0.25),xaxs="r",bty="n")
+#
+ggplot(final_data,aes(x=job))+
+  geom_bar(aes(fill= race ),position="fill")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+coord_flip()+
+  ggtitle("Distribution of Race and Job")
+
+```
+From this plot the president and CEO are seen to be white, there are 3 senior BI developers and they are all Asians, Also, all the 5 network engineers are white.
+Hence, this job position will be an area  of improvement for HR managers when they are filling this role next. Most of the people in this HR data base are Production Technician I and Production Technician II. Production Technician II has quite a mix of individuals from different races. Most of the other roles have just one individual in the position. 
+
+
+### Gender Race and Salary
+
+```{r echo = FALSE}
+
+par(fin=c(4.00,4.00),pin=c(4.00,4.00),
+mai=c(0.85,0.85,0.25,0.25),xaxs="r",bty="n")
+#
+p_s_r <- ggplot(final_data,aes(x=salary,y=gender))+
+  geom_boxplot(aes(fill= race))+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  ggtitle("Relationship between Gender, Race and Salary")
+
+p_s_r2 <- ggplot(final_data,aes(x=salary,y=race))+
+  geom_boxplot(aes(fill=race))+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), legend.position="none")
+ 
+p_s_r
+p_s_r2
+```
+```{r echo = FALSE, warning=FALSE}
+
+par(fin=c(4.00,4.00),pin=c(4.00,4.00),
+mai=c(0.85,0.85,0.25,0.25),xaxs="r",bty="n")
+#
+val <- final_data %>% group_by(gender, race) %>% summarise_at(vars(salary), list(mean_salary = mean,sd_salary= sd)) %>% 
+  mutate(sd_salary=if_else(is.na(sd_salary),0,sd_salary))
+val$upper68 <- val$mean_salary+val$sd_salary
+val$lower68 <- val$mean_salary-val$sd_salary
+val$upper95 <- val$mean_salary+2*val$sd_salary
+val$lower95 <- val$mean_salary-2*val$sd_salary
+
+
+```
+```{r echo = FALSE, warning=FALSE}
+ggplot(val, aes(y=reorder(gender,-mean_salary),x=mean_salary))+
+  geom_pointrange(aes(shape=factor(race,ordered=TRUE),xmin=mean_salary,xmax=mean_salary,
+color=factor(race,ordered=TRUE)),
+position=position_dodge(width=0.5),linetype=0) +
+  
+geom_errorbar(aes(xmin=val$lower68,xmax=val$upper68,
+color=factor(race,ordered=TRUE)),
+position=position_dodge(width=0.5),linetype=1,width=0.3)+
+  
+geom_errorbar(aes(xmin=val$lower95,xmax=val$upper95,
+color=factor(val$race,ordered=TRUE)),
+position=position_dodge(width=0.5),linetype=1,width=0)+
+  
+guides(shape=guide_legend(reverse=TRUE),
+color=guide_legend(reverse=TRUE)) +
+theme(panel.grid=element_blank()) +
+ # position=position_dodge(width=0.5),linetype=1,width=0))+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  labs(title="Plot of Gender and Race Vs Salary",
+         y = "Gender")
+```
+
+
+
+From this plot ,
+The typical  salary of all the races is pretty much close together.There are a lot of high salaried individuals in the white and black categories. especially in the white race, this may be as a result of the fact that senior executives among other high paid individuals are white. It is  also interesting to note that most of the people with really high salary probably like  the  CEO are all females.
+
+The spread in the distribution of salary for Asians in the company is quite  wide for both females and males. For the white people in the data, aside the very large outliers, their spraed is quite close to each other. The distribution of the salary for the black males is quite spread out than the black females. 
+
+
+Also, from the dot whisker chat, there is no significant difference in the mean salaries even though average salary for black males is higher than all the other races and gender.
+
+This gives an indication of fair salary in the data.
+ 
+
+
+## Relationship btween Salary and department
+```{r echo = FALSE}
+par(fin=c(4.00,4.00),pin=c(4.00,4.00),
+mai=c(0.85,0.85,0.25,0.25),xaxs="r",bty="n")
+#
+ggplot(final_data,aes(x=salary,y=department,fill=department))+
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),legend.position = "none")+
+  ggtitle("Relationship between Salary and Department")
+```
+In this company it is noticed that the Chief executive officer is paid around 250000 which is the highest paid salary in the company.This is followed by individuals in the IT/IS department. Its interesting to know that department with the most people is the production department but it has very few variability in their salary with 3 outliers may be the production managers and the head of that department.T
+The administrative office though had a bit os skewness to it indicating that there may be some salary imbalances to be investigated there. 
+
+Thus, we can say that the pay is quite fair in the production team.
+
+
+
+
+ 
+```{r echo = FALSE, warning=FALSE}
+
+par(fin=c(4.00,4.00),pin=c(4.00,4.00),
+mai=c(0.85,0.85,0.25,0.25),xaxs="r",bty="n")
+#
+val <- final_data %>% group_by(department, race) %>% summarise_at(vars(salary), list(mean_salary = mean,sd_salary= sd)) %>% 
+  mutate(sd_salary=if_else(is.na(sd_salary),0,sd_salary))
+val$upper68 <- val$mean_salary+val$sd_salary
+val$lower68 <- val$mean_salary-val$sd_salary
+val$upper95 <- val$mean_salary+2*val$sd_salary
+val$lower95 <- val$mean_salary-2*val$sd_salary
+
+
+```
+```{r echo = FALSE, warning=FALSE}
+ggplot(val, aes(y=reorder(department,-mean_salary),x=mean_salary))+
+  geom_pointrange(aes(shape=factor(race,ordered=TRUE),xmin=mean_salary,xmax=mean_salary,
+color=factor(race,ordered=TRUE)),
+position=position_dodge(width=0.5),linetype=0) +
+  
+geom_errorbar(aes(xmin=val$lower68,xmax=val$upper68,
+color=factor(race,ordered=TRUE)),
+position=position_dodge(width=0.5),linetype=1,width=0.3)+
+  
+geom_errorbar(aes(xmin=val$lower95,xmax=val$upper95,
+color=factor(val$race,ordered=TRUE)),
+position=position_dodge(width=0.5),linetype=1,width=0)+
+  
+guides(shape=guide_legend(reverse=TRUE),
+color=guide_legend(reverse=TRUE)) +
+theme(panel.grid=element_blank()) +
+ # position=position_dodge(width=0.5),linetype=1,width=0))+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  labs(title="Plot of Department and Race Vs Salary",
+         y = "Department")
+```
+
+In this figure,  we see the confidence interval of the mean salary for each of the departments. Even though for each department, we have different job descriptions, aside the executive office, there does not seem to be a difference in the average salary for different departments.
+Furthermore, there is no significant difference between the salaries within each department for the races that are present in that department. This shows that there seems to be fair salary distribution even in the administrative office which has only white and black races. 
+
+### Investigating difference in salary for job position
+
+```{r echo = FALSE}
+par(fin=c(4.00,4.00),pin=c(4.00,4.00),
+mai=c(0.85,0.85,0.25,0.25),xaxs="r",bty="n")
+#
+val <- final_data %>% group_by(department,job) %>% summarise_at(vars(salary), list(mean_salary = mean,sd_salary= sd)) %>% 
+  mutate(sd_salary=if_else(is.na(sd_salary),0,sd_salary))
+val$upper68 <- val$mean_salary+val$sd_salary
+val$lower68 <- val$mean_salary-val$sd_salary
+val$upper95 <- val$mean_salary+2*val$sd_salary
+val$lower95 <- val$mean_salary-2*val$sd_salary
+
+
+```
+```{r echo = FALSE}
+ggplot(val, aes(y=reorder(job,-mean_salary),x=mean_salary))+
+  geom_point()+
+  geom_errorbar(aes(xmin=val$lower68,xmax=val$upper68))+
+   geom_errorbar(aes(xmin=val$lower95,xmax=val$upper95),linetype=1,width=0)+
+ # position=position_dodge(width=0.5),linetype=1,width=0))+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+ylab("Job")+
+  ggtitle("Confidence Interval of Average Salaries ")
+```
+
+From this plot, you can see depending on the job title, an associate's salary is significantly different from the other. 
+The least paid workers are the administrative assistants. But their salaries are not significantly higher than Production Technician I and Network Engineer which has a much wider confidence interval than the others. 
+In the plot from IT support to production manager,there no significant difference in the salaries.
+This plot shows the trends that is usually seen in every cooperation where individual's salary are based on their job positions..
+Data Analysts job salaried lies around 80000 compare to Data Architects that is around 130000.
+
+
+
+### Absences , Race and Performance score.
+```{r echo = FALSE}
+par(fin=c(4.00,4.00),pin=c(4.00,4.00),
+mai=c(0.85,0.85,0.25,0.25),xaxs="r",bty="n")
+#
+
+boxplot(absences~performance_score,data=final_data, main="Performance Score Vs Absences"
+  )
+```
+
+This plot shows that those on personal improvement have much lower absences than the rest even though we still have one outlier.This is probably because they are on probation and are being monitored carefully.
+
+Those that need improvement have the most absences, these people may be well on the way to being included to the personal improvement program. 
+
+ Those that exceeds expectation have the second largest average absences .
+ 
+```{r echo = FALSE}
+
+val <- final_data %>% group_by(race) %>% summarise_at(vars(absences), list(mean_absences = mean,sd_absences= sd)) %>% 
+  mutate(sd_absences=if_else(is.na(sd_absences),0,sd_absences))
+val$upper68 <- val$mean_absences+val$sd_absences
+val$lower68 <- val$mean_absences-val$sd_absences
+val$upper95 <- val$mean_absences+2*val$sd_absences
+val$lower95 <- val$mean_absences-2*val$sd_absences
+
+
+```
+
+
+```{r echo = FALSE, warning=FALSE}
+par(fin=c(4.00,4.00),pin=c(4.00,4.00),
+mai=c(0.85,0.85,0.25,0.25),xaxs="r",bty="n")
+#
+ggplot(val, aes(y=reorder(race,-mean_absences),x=mean_absences))+
+  geom_point()+
+  geom_errorbar(aes(xmin=val$lower68,xmax=val$upper68))+
+   geom_errorbar(aes(xmin=val$lower95,xmax=val$upper95),linetype=1,width=0)+
+ # position=position_dodge(width=0.5),linetype=1,width=0))+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+ylab("Race")+
+  ggtitle("Confidence Interval of Average Absences Per Race ")
+```
+
+
+It is of interest to know if some races are popular for absenteeism at work, from this analysis, there does not seem to a be a significant difference in the  average absences of individuals based on  their race.
+
+\newpage
+
+# Predicting Salary
+
+In this part of the analysis, the most important variable that can be used to predict whether or not an individual will have a salary above or below the median is investigated. The random forest and the gradient boosting ensemble method will be used for this analysis. 
+All salaries below the median will be considered as the 0 class and 1 will be for the alternative. 
+Gender, race , job,recruitment source and married will be the variables that will be considered in predicting whether or not an individual's salary will fall below the median. I selected these variables because these are always preknown before a job starts. Also, if there is any disparities in these, it would help  the HR manager see where opportunities of fair salaries could be.
+
+The data is split into 70% train and 30% test
+
+
+
+
+
+```{r echo = FALSE}
+set.seed(100)
+library(caret)
+sample <- sample.int(n = nrow(data), size = floor(.7*nrow(data)), replace = F)
+final_data$salary <- ifelse(final_data$salary < median(final_data$salary),0,1)
+train <- final_data[sample, ]
+test  <- final_data[-sample, ]
+dataY <- as.matrix(train$salary)
+dataX <-subset(train, select=c("race","gender","job","married","recruitment_source"))
+xtest <-subset(test, select=c("race","gender","job","married","recruitment_source"))
+```
+
+
+##  RandomForest
+```{r echo=FALSE ,include=FALSE}
+# Installing package
+library(randomForest)
+# Fitting Random Forest to the train dataset
+set.seed(100) # Setting seed
+classifier_RF = randomForest(x = dataX,
+							y = factor(train$salary),
+							ntree = 500)
+
+```
+
+
+```{r echo=FALSE}
+
+par(fin=c(4.00,4.00),pin=c(4.00,4.00),
+mai=c(0.85,0.85,0.25,0.25),xaxs="r",bty="n")
+# Predicting the Test set results
+#y_pred =ifelse( predict(classifier_RF, newdata = test[-3]) >0.5,1,0)
+y_pred =predict(classifier_RF, newdata = xtest)
+# Confusion Matrix
+tab = table(test[, 3], y_pred)
+confusionMatrix(tab,positive="1")
+
+# Plotting model
+#plot(classifier_RF)
+
+# Importance plot
+#importance(classifier_RF)
+
+# Variable importance plot
+varImpPlot(classifier_RF)
+
+```
+THe randomforest model shows the accuracy at 76.6%. Furthermore, the sensitivity is 76.1% and specificity is 77.0% . This shows that the model does a good job in predicting the various classes.
+
+
+From the variable importance plot, the job, recruitment source and race are the top 3 variables that influenced whether an individual will have a  salary above the median.
+
+
+## Gradient Boosting
+
+
+
+#### XGBoost Tuning
+```{r echo = FALSE, warning=FALSE, include=FALSE}
+## Cross validation tuning of the parameters for the xgboost model.
+
+set.seed(100)
+
+xgbGrid <- expand.grid(
+  max_depth = 7,
+  nrounds = c(10,50, 100),
+  eta = c(0.01,0.02, 0.1),
+  colsample_bytree = 0.6,
+  gamma = 0,
+  min_child_weight = 1,
+  subsample = 0.6
+)
+ctrl <- trainControl(
+  method = "cv", number = 5)
+xgb.tuned <- train(factor(salary)~ race+gender+job+married+recruitment_source , data = train,
+  method = "xgbTree",trControl=ctrl,
+  tuneGrid = xgbGrid
+  )
+
+
+```
+
+
+
+```{r  echo =FALSE}
+xgb.tuned
+ggplot(xgb.tuned)
+#imp <- varImp(xgb.tuned)
+#imp
+
+#plot(imp, top = 10)
+
+xgb.predict.prob <- predict(xgb.tuned,
+                            newdata = test,
+                            type = "prob")[, 2]
+
+xgb.predict.class <- as.factor(1 * (xgb.predict.prob > 0.5))
+
+confusionMatrix(xgb.predict.class, factor(test$salary), positive="1")
+
+
+
+```
+The output of the cross validation tuning of the parameters  shows that the optimal learning rate is 0.02. Also, the  optimal number of decision trees in the final model has been selected to be 50.
+
+```{r echo = FALSE}
+library(caret)
+
+## Model fit with optimal values.
+## One hot encoding of the factor variables
+
+dummy <- dummyVars(" ~ .", data=dataX)
+newdata <- data.frame(predict(dummy, newdata = dataX))
+dataX <- as.matrix(newdata)
+# hyperparameter tuning results
+param_list <- list(objective = "binary:logistic", #"reg:squarederror",  # For regression
+                  eta= 0.01,
+                   max_depth = 10,
+                   gamma = 0.01,
+                   subsample = 0.95
+                   )
+mod <- xgboost::xgboost(data = dataX, 
+                        label = dataY, 
+                        params = param_list,nrounds=50,
+                        verbose = FALSE, nthread = parallel::detectCores() - 2,
+                        early_stopping_rounds = 8)
+                       
+
+
+```
+```{r echo = FALSE}
+
+# To return the SHAP values and ranked features by mean|SHAP|
+shap_values <- shap.values(xgb_model = mod, X_train = dataX)
+shap_long <- shap.prep(xgb_model = mod, X_train = dataX)
+shap.importance(shap_long, top_n = 5)
+shap_val <- droplevels(subset(shap_long,mean_value >0.005))
+shap.plot.summary(shap_val)
+#plot(varImp(mod))
+```
+The shap plot shows that job is the most important variable in predicting whether a salary will fall above the median. It is noticed that for the job position, whether or not the person is a Production Technician I , Technician II or Area Sales Manager  has the most influence on  whether or not an individual will have a salary below the median salary.
+
+One can see that being in the Production Technician I job position is associated with  higher chance of getting a median salary below the median and vice versa. The same is true for Area Sales Manager and Technician II but the impact of not being an Area Sales Manager on predicting whether or not your salary is above the median is much lower than Technician I and II.
+
+Furthermore, if you are recruited through website and linkedIn there is a  possibility of your salary being lower than the median salary. This is because most of the people in these category do lower salaried jobs. Interestingly those, that were recruited though Indeed had the most influence and have a high chance of being paid higher.
+ 
+ Being Asian may result in you having a salary higher than the median salary, this may be because more Asians hold high paid salary jobs. the impact of this is very little though.
+ 
+Being female or not married have some impact on whether or not your salary is above the median. This impact is very little and may even be insignificant since it is very close to 0. Even their direction of impact is not directly obvious from the plot. 
+
+
+```{r echo = FALSE, warning=FALSE}
+# generate predictions for our held-out testing data
+ 
+
+dummy <- dummyVars(" ~ .", data=xtest)
+newdata <- data.frame(predict(dummy, newdata = xtest))
+xtest <- as.matrix(newdata)
+
+
+pred <- predict(mod, xtest)
+# get & print the classification error
+testY <- as.matrix(test$salary)
+err <- mean(as.numeric(pred > 0.5) != testY)
+pred_0_1 <- as.numeric(pred > 0.5)
+tab <- table(testY,pred_0_1)
+
+confusionMatrix(tab)
+
+roct <- roc(testY,pred_0_1 )
+plot(roct)
+auc(roct)
+```
+
+
+The prediction accuracy of this model is about 0.7979, and the kappa value is 0.597. The AUC is 0.798 which shows the model does a great job in predicting  whether a person's salary falls below the median salary or not. 
+This also indicates that the important variables can be seriously considered
+
+
+The gradient boosting model seems to have better test prediction metric values  than the random forest model.
+The accuracy, specificity and sensitivity are much higher.
+
+Also, the findings from the teo models are  are very consistent.
+
+
+\newpage
+# Summary and Recommendation for Human Resource Managers.
+
+After this analysis, it is very easy to see that the gender distribution of the company is really great even though there is a little bias towards females. Also, there are no non binary gender groups within the data.This may be as a result of it not being reported or the data collection using sex instead of gender. 
+
+Furthermore, even though job positions influences salary , it is wonderful to note that within the same department, there is very little diversity in the salary.
+
+ Also, there were very few hispanics and American Indians  in the data. Human resource managers should do well with targeting such people as well in diversity fairs since currently those help only recruit black people.
+ 
+ In terms of gender and salary distribution, there seems to be fairness.
+ 
+ The recruitment source seems to be influential in decided whether your salary is higher.In terms of recruiting more races aside White and Blacks should be considered since they are few in the company and they are seen to exceed expectations more often. More minority groups needs to be considered during diversity fairs.
+ 
+ For the next senior BI developer role and Network Engineers, other races should be given much higher consideration.
+
+
+# Conclusion
+
+The insights from this analysis shows that job position  is the most influential factor to consider to know whether ones salary will fall above the median. The company did not have serious red flag diversity and inclusion issues and the salary distribution seems pretty fair.
+
+
+Furthermore, techniques from this class has been successful in giving insights about this data set.
+
+
+# References
+1. Keen, K. J. (2018), Graphics for Statistics and Data Analysis with R, 2nd Edition, CRC. 
+
+2. https://www.kaggle.com/datasets/rhuebner/human-resources-data-set. 

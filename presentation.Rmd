@@ -1,0 +1,761 @@
+---
+title: "Statistical Graphics Presentation"
+author: "Eugeniah Arthur"
+date: "2022-10-29"
+output: html_document
+---
+
+
+## 
+```{r}
+library(ggplot2)
+```
+
+```{r}
+haireye<-matrix(data=c(20,84,17,94,5,29,14,16,15,
+54,14,10,68,119,26,7),
+nrow=4,ncol=4,byrow=TRUE,
+dimnames=list(c("Blue","Green","Hazel","Brown"),
+c("Black","Brunette","Red","Blond")))
+dat=haireye
+dat
+haireye<-haireye/sum(haireye)# Summed over all groups
+dotchart(haireye,xlab="Relative Frequency",
+pch=19,lcolor="white",xlim=c(0,0.25))
+he<-c(94,16,10,7,17,14,14,26,84,29,54,119,20,5,15,68)# reoders the data from lowest category to highest
+nhe<-length(he)
+hesum<-sum(he)
+he<-he/sum(he)
+sd<-sqrt((1.-he)*he/hesum)
+hlo<-he-sd
+hhi<-he+sd
+sd2<-sd*qnorm(0.975)
+hlo2<-he-sd2
+hhi2<-he+sd2
+ii<- -2
+for (i in 1:nhe) {
+ii<- ii + ifelse ((i %% 4) == 1,3,1)
+lines(c(hlo2[i],hhi2[i]),c(ii,ii))
+lines(c(hlo[i],hlo[i]),c(ii-0.2,ii+0.2))
+lines(c(hhi[i],hhi[i]),c(ii-0.2,ii+0.2))
+}
+```
+```{r}
+haireye<-matrix(data=c(20,84,17,94,5,29,14,16,15,54,14,10,68,119,26,7),
+nrow=4,ncol=4,byrow=TRUE,
+dimnames=list(c("Blue","Green","Hazel","Brown"),
+c("Black","Brunette","Red","Blond")))
+dat <- unname(haireye)
+haireye<-haireye/sum(haireye)# Summed over all groups
+dotchart(haireye,xlab="Relative Frequency",
+pch=19,lcolor="white",xlim=c(0,0.25))
+he<-c(dat[,4],dat[,3],dat[,2],dat[,1])
+nhe<-length(he)
+hesum<-sum(he)
+he<-he/sum(he)
+sd<-sqrt((1.-he)*he/hesum)
+hlo<-he-sd
+hhi<-he+sd
+sd2<-sd*qnorm(0.975)
+hlo2<-he-sd2
+hhi2<-he+sd2
+ii<- -2
+for (i in 1:nhe) {
+ii<- ii + ifelse ((i %% 4) == 1,3,1)
+lines(c(hlo2[i],hhi2[i]),c(ii,ii))
+lines(c(hlo[i],hlo[i]),c(ii-0.2,ii+0.2))
+lines(c(hhi[i],hhi[i]),c(ii-0.2,ii+0.2))
+}
+```
+
+```{r}
+haireye<-matrix(data=c(7,10,16,94,26,14,14,17,119,54,
+29,84,68,15,5,20),nrow=4,ncol=4,byrow=TRUE,
+dimnames=list(c("Blond","Red","Brunette","Black"),
+c("Brown","Hazel","Green","Blue")))
+haircol<-unlist(dimnames(haireye)[1])
+eyecol<-unlist(dimnames(haireye)[2])
+hair<-rep(" ",16)
+eye<-rep(" ",16)
+freq<-rep(0,16)
+n=0
+for (i in 1:4){ for (j in 1:4){
+n<-n+1
+hair[n]<-haircol[i]
+eye[n]<-eyecol[j]
+freq[n]<-haireye[i,j]
+}}
+hair<-factor(hair,levels=haircol,ordered=TRUE)
+eye<-factor(eye,levels=eyecol,ordered=TRUE)
+he<-freq
+nhe<-length(he)
+hesum<-sum(he)
+he<-he/sum(he)
+sd<-sqrt((1.-he)*he/hesum)
+hlo<-he-sd
+hhi<-he+sd
+sd2<-sd*qnorm(0.975) 
+hlo2<-he-sd2
+hhi2<-he+sd2
+haireyerf<-data.frame(hair=hair,eye=eye,he=he,
+hlo=hlo,hhi=hhi,hlo2=hlo2,hhi2=hhi2)
+figure<-ggplot(haireyerf,aes(x=hair,y=he)) +
+geom_pointrange(aes(shape=factor(eye,
+levels=rev(eyecol),ordered=TRUE),ymin=he,ymax=he,
+color=factor(eye,levels=rev(eyecol),ordered=TRUE)),
+position=position_dodge(width=0.5),linetype=0) +
+geom_errorbar(aes(ymin=hlo,ymax=hhi,
+color=factor(eye,levels=rev(eyecol),ordered=TRUE)),
+position=position_dodge(width=0.5),linetype=1,width=0.3)+
+geom_errorbar(aes(ymin=hlo2,ymax=hhi2,
+color=factor(eye,levels=rev(eyecol),ordered=TRUE)),
+position=position_dodge(width=0.5),linetype=1,width=0)+
+scale_shape_manual(values=15:18) +
+scale_color_manual(values=c("blue","green4",
+"darkgoldenrod3","brown4")) +
+labs(x="Hair Color",y="Relative Frequency",
+shape="Eye Color",color="Eye Color") +
+guides(shape=guide_legend(reverse=TRUE),
+color=guide_legend(reverse=TRUE)) +
+theme(panel.grid=element_blank()) +
+coord_flip()
+print(figure)
+```
+```{r}
+haireye<-matrix(data=c(92573,96212,49797,65846,106635,105468,54849,60723,
+90133,109115,57006,61069,88467,107099,55952,59940,93103,96405,49915,66701,93804,112495,58710,63374),
+nrow=6,ncol=4,byrow=TRUE,
+dimnames=list(c("Michigan","Ohio","Pennsylvania","West Virginia","Kentucky","Indiana"),c("Software Developer","Data Science","Assistant Professor","Data Analyst")))
+dat <- unname(haireye)
+dat
+haireye<-haireye/sum(haireye)
+dotchart(haireye,xlab="Relative Frequency",
+pch=19,lcolor="white")
+he<-c(dat[,4],dat[,3],dat[,2],dat[,1])
+nhe<-length(he)
+hesum<-sum(he)
+he<-he/sum(he)
+sd<-sqrt((1.-he)*he/hesum)
+hlo<-he-sd
+hhi<-he+sd
+sd2<-sd*qnorm(0.975)
+hlo2<-he-sd2
+hhi2<-he+sd2
+ii<- -2
+for (i in 1:nhe) {
+ii<- ii + ifelse ((i %% 4) == 1,3,1)
+lines(c(hlo2[i],hhi2[i]),c(ii,ii))
+lines(c(hlo[i],hlo[i]),c(ii-0.2,ii+0.2))
+lines(c(hhi[i],hhi[i]),c(ii-0.2,ii+0.2))
+}
+```
+```{r}
+death_state<-matrix(data=c(14167,12316,17141,16106,12823,10768,5606,5187,8705,8050),nrow=5,ncol=2,byrow=T,
+dimnames=list(c("Ohio","Pennsylvania","Michigan","Kentucky","Indiana"),c("Men","Women")))
+death<-unlist(dimnames(death_state)[1])
+state<-unlist(dimnames(death_state)[2])
+hair<-rep(" ",10)
+eye<-rep(" ",10)
+freq<-rep(0,10)
+n=0
+for (i in 1:5){ for (j in 1:2){
+n<-n+1
+hair[n]<-death[i]
+eye[n]<-state[j]
+freq[n]<-death_state[i,j]
+}}
+hair<-factor(hair,levels=death,ordered=TRUE)
+eye<-factor(eye,levels=state,ordered=TRUE)
+he<-freq
+nhe<-length(he)
+hesum<-sum(he)
+he<-he/sum(he)
+sd<-sqrt((1.-he)*he/hesum)
+hlo<-he-sd
+hhi<-he+sd
+sd2<-sd*qnorm(0.975) 
+hlo2<-he-sd2
+hhi2<-he+sd2
+death_staterf<-data.frame(hair=hair,eye=eye,he=he,
+hlo=hlo,hhi=hhi,hlo2=hlo2,hhi2=hhi2)
+figure<-ggplot(haireyerf,aes(x=hair,y=he)) +
+geom_pointrange(aes(shape=factor(eye,
+levels=rev(state),ordered=TRUE),ymin=he,ymax=he,
+color=factor(eye,levels=rev(state),ordered=TRUE)),
+position=position_dodge(width=0.5),linetype=0) +
+geom_errorbar(aes(ymin=hlo,ymax=hhi,
+color=factor(eye,levels=rev(state),ordered=TRUE)),
+position=position_dodge(width=0.5),linetype=1,width=0.3)+
+geom_errorbar(aes(ymin=hlo2,ymax=hhi2,
+color=factor(eye,levels=rev(state),ordered=TRUE)),
+position=position_dodge(width=0.5),linetype=1,width=0)+
+scale_shape_manual(values=15:18) +
+scale_color_manual(values=c("blue","green4",
+"darkgoldenrod3","brown4")) +
+labs(x="Hair Color",y="Relative Frequency",
+shape="Eye Color",color="Eye Color") +
+guides(shape=guide_legend(reverse=TRUE),
+color=guide_legend(reverse=TRUE)) +
+theme(panel.grid=element_blank()) +
+coord_flip()
+print(figure)
+```
+
+
+```{r}
+haireye<-matrix(data=c(14167,12316,17141,16106,12823,10768,5606,5187,8705,8050),nrow=5,ncol=2,byrow=T,
+dimnames=list(c("Ohio","Pennsylvania","Michigan","Kentucky","Indiana"),c("Men","Women")))
+dat <- unname(haireye)
+haireye<-haireye/sum(haireye)# Summed over all groups
+dotchart(haireye,xlab="Relative Frequency",
+pch=19,lcolor="white",xlim=c(0,0.25))
+he<-c(dat[,2],dat[,1])
+nhe<-length(he)
+hesum<-sum(he)
+he<-he/sum(he)
+sd<-sqrt((1.-he)*he/hesum)
+hlo<-he-sd
+hhi<-he+sd
+sd2<-sd*qnorm(0.975)
+hlo2<-he-sd2
+hhi2<-he+sd2
+ii<- -2
+for (i in 1:nhe) {
+ii<- ii + ifelse ((i %% 5) == 1,3,1)
+lines(c(hlo2[i],hhi2[i]),c(ii,ii))
+lines(c(hlo[i],hlo[i]),c(ii-0.4,ii+0.4))
+lines(c(hhi[i],hhi[i]),c(ii-0.4,ii+0.4))
+}
+```
+```{r}
+haireye<-matrix(data=c(14167,12316,17141,16106,12823,10768,5606,5187,8705,8050),nrow=2,ncol=5,byrow=F,
+dimnames=list(c("Men","Women"),c("Ohio","Pennsylvania","Michigan","Kentucky","Indiana")))
+dat <- unname(haireye)
+haireye<-haireye/sum(haireye)# Summed over all groups
+dotchart(haireye,xlab="Relative Frequency",
+pch=19,lcolor="white",xlim=c(0,0.2))
+he<-c(dat[,5],dat[,4],dat[,3],dat[,2],dat[,1])
+nhe<-length(he)
+hesum<-sum(he)
+he<-he/sum(he)
+sd<-sqrt((1.-he)*he/hesum)
+hlo<-he-sd
+hhi<-he+sd
+sd2<-sd*qnorm(0.975)
+hlo2<-he-sd2
+hhi2<-he+sd2
+ii<- -2
+for (i in 1:nhe) {
+ii<- ii + ifelse ((i %% 2) == 1,3,1)
+lines(c(hlo2[i],hhi2[i]),c(ii,ii))
+lines(c(hlo[i],hlo[i]),c(ii-0.2,ii+0.2))
+lines(c(hhi[i],hhi[i]),c(ii-0.2,ii+0.2))
+}
+```
+```{r}
+survey_results_public <- read.csv("~/Downloads/stack-overflow-developer-survey-2022/survey_results_public.csv", header=T)
+sdata <- na.omit(data.frame(Codekind=factor(survey_results_public$MainBranch),gender=factor(survey_results_public$Gender)))
+```
+```{r}
+summary(sdata)
+```
+```{r}
+pdata <- na.omit(data.frame(Codekind=factor(survey_results_public$MainBranch),work_type=factor(survey_results_public$RemoteWork)))
+levels(pdata$Codekind) <- c("Developer", "Learner"," Work", "Hobby","no longer developer","none")
+levels(pdata$work_type) <- c("Inperson", "Fully Remote","Hybrid")
+pdata <- droplevels(pdata)
+summary(pdata)
+usedata <- table(pdata$Codekind,pdata$work_type)
+usedata <- as.matrix(usedata)
+usedata2 <- usedata[-1,]
+usedata2
+```
+
+```{r}
+levels(sdata$Codekind) <- c("Developer", "Learner"," Work", "Hobby","no longer developer","none")
+
+sdata <- subset(sdata, gender =="Man"|gender=="Woman")
+sdata2 <- droplevels(sdata)
+data2 <- table(sdata2$Codekind,sdata2$gender)
+data2 <- as.matrix(data2)
+```
+
+```{r}
+haireye<-data2[-1,]
+haircol<-unlist(dimnames(haireye)[1])
+eyecol<-unlist(dimnames(haireye)[2])
+hair<-rep(" ",8)
+eye<-rep(" ",8)
+freq<-rep(0,8)
+n=0
+for (i in 1:4){ for (j in 1:2){
+n<-n+1
+hair[n]<-haircol[i]
+eye[n]<-eyecol[j]
+freq[n]<-haireye[i,j]
+}}
+hair<-factor(hair,levels=haircol,ordered=TRUE)
+eye<-factor(eye,levels=eyecol,ordered=TRUE)
+he<-freq
+nhe<-length(he)
+hesum<-sum(he)
+he<-he/sum(he)
+sd<-sqrt((1.-he)*he/hesum)
+hlo<-he-sd
+hhi<-he+sd
+sd2<-sd*qnorm(0.975) 
+hlo2<-he-sd2
+hhi2<-he+sd2
+haireyerf<-data.frame(hair=hair,eye=eye,he=he,
+hlo=hlo,hhi=hhi,hlo2=hlo2,hhi2=hhi2)
+figure<-ggplot(haireyerf,aes(x=hair,y=he)) +
+geom_pointrange(aes(shape=factor(eye,
+levels=rev(eyecol),ordered=TRUE),ymin=he,ymax=he,
+color=factor(eye,levels=rev(eyecol),ordered=TRUE)),
+position=position_dodge(width=0.5),linetype=0) +
+geom_errorbar(aes(ymin=hlo,ymax=hhi,
+color=factor(eye,levels=rev(eyecol),ordered=TRUE)),
+position=position_dodge(width=0.5),linetype=1,width=0.3)+
+geom_errorbar(aes(ymin=hlo2,ymax=hhi2,
+color=factor(eye,levels=rev(eyecol),ordered=TRUE)),
+position=position_dodge(width=0.5),linetype=1,width=0)+
+scale_shape_manual(values=15:18) +
+scale_color_manual(values=c("blue","green4",
+"darkgoldenrod3","brown4")) +
+labs(x="Hair Color",y="Relative Frequency",
+shape="Eye Color",color="Eye Color") +
+guides(shape=guide_legend(reverse=TRUE),
+color=guide_legend(reverse=TRUE)) +
+theme(panel.grid=element_blank()) +
+coord_flip()
+print(figure)
+```
+```{r}
+data3 <- t(data2[-1,])
+data3
+```
+
+```{r}
+haireye<-data3
+haircol<-unlist(dimnames(haireye)[1])
+eyecol<-unlist(dimnames(haireye)[2])
+hair<-rep(" ",8)
+eye<-rep(" ",8)
+freq<-rep(0,8)
+n=0
+for (i in 1:2){ for (j in 1:4){
+n<-n+1
+hair[n]<-haircol[i]
+eye[n]<-eyecol[j]
+freq[n]<-haireye[i,j]
+}}
+hair<-factor(hair,levels=haircol,ordered=TRUE)
+eye<-factor(eye,levels=eyecol,ordered=TRUE)
+he<-freq
+nhe<-length(he)
+hesum<-sum(he)
+he<-he/sum(he)
+sd<-sqrt((1.-he)*he/hesum)
+hlo<-he-sd
+hhi<-he+sd
+sd2<-sd*qnorm(0.975) 
+hlo2<-he-sd2
+hhi2<-he+sd2
+haireyerf<-data.frame(hair=hair,eye=eye,he=he,
+hlo=hlo,hhi=hhi,hlo2=hlo2,hhi2=hhi2)
+figure<-ggplot(haireyerf,aes(x=hair,y=he)) +
+geom_pointrange(aes(shape=factor(eye,
+levels=rev(eyecol),ordered=TRUE),ymin=he,ymax=he,
+color=factor(eye,levels=rev(eyecol),ordered=TRUE)),
+position=position_dodge(width=0.7),linetype=0) +
+geom_errorbar(aes(ymin=hlo,ymax=hhi,
+color=factor(eye,levels=rev(eyecol),ordered=TRUE)),
+position=position_dodge(width=0.7),linetype=1,width=0.3)+
+geom_errorbar(aes(ymin=hlo2,ymax=hhi2,
+color=factor(eye,levels=rev(eyecol),ordered=TRUE)),
+position=position_dodge(width=0.7),linetype=1,width=0)+
+scale_shape_manual(values=15:18) +
+scale_color_manual(values=c("blue","green4",
+"darkgoldenrod3","brown4","red")) +
+labs(x="Gender",y="Relative Frequency",
+shape="Coding Level",color="Coding Level") +
+guides(shape=guide_legend(reverse=TRUE),
+color=guide_legend(reverse=TRUE)) +
+theme(panel.grid=element_blank()) +
+coord_flip()
+
+print(figure)
+```
+
+```{r}
+haireye<-data3
+haircol<-unlist(dimnames(haireye)[1])
+eyecol<-unlist(dimnames(haireye)[2])
+hair<-rep(" ",8)
+eyey<-rep(" ",8)
+freq<-rep(0,8)
+n=0
+for (i in 1:2){ for (j in 1:4){
+n<-n+1
+hair[n]<-haircol[i]
+eye[n]<-eyecol[j]
+freq[n]<-haireye[i,j]
+}}
+hair<-factor(hair,levels=haircol,ordered=TRUE)
+eye<-droplevels(factor(eye,levels=rev(eyecol),ordered=TRUE))
+haireyef<-data.frame(hair=hair,eye=eye,freq=freq)
+figure<-ggplot(haireyef,aes(x=eye,ymin=0,ymax=freq,
+y=freq)) +
+geom_pointrange(aes(shape=factor(hair,
+levels=haircol,ordered=TRUE),
+color=factor(hair,levels=haircol,ordered=TRUE)),
+position=position_dodge(width=0.5),linetype=3)+
+scale_shape_manual(values=15:18) +
+scale_color_manual(values=rev(c("black","brown",
+"red","gold"))) +
+coord_flip() +
+labs(x="Eye Color",y="Frequency",
+shape="Hair Color",color="Hair Color")+
+guides(shape=guide_legend(reverse=TRUE),
+color=guide_legend(reverse=TRUE)) +
+theme(panel.grid=element_blank())
+print(figure)
+```
+
+```{r}
+haireye<- data2[-1,]
+dotchart(haireye,xlab="Frequency",pch=c(23,22,21,19),
+lcolor="white")
+he<-c(haireye[,2],haireye[,1])
+dlx<-cbind(rep(0,length(he)),he)
+ys<-c(1:4,7:10)
+dly<-cbind(ys,ys)
+ldl<-length(he)
+for (i in 1:ldl) lines(dlx[i,],dly[i,],lty=3)
+```
+
+```{r}
+haireye <- data2[-1,]
+dat <- unname(haireye)
+haireye<-haireye/sum(haireye)# Summed over all groups
+dotchart(haireye,xlab="Relative Frequency",
+pch=2,lcolor="white")
+he<-c(dat[,2],dat[,1])
+nhe<-length(he)
+hesum<-sum(he)
+he<-he/sum(he)
+sd<-sqrt((1.-he)*he/hesum)
+hlo<-he-sd
+hhi<-he+sd
+sd2<-sd*qnorm(0.975)
+hlo2<-he-sd2
+hhi2<-he+sd2
+ii<- -2
+for (i in 1:nhe) {
+ii<- ii + ifelse ((i %% 4) == 1,3,1)
+lines(c(hlo2[i],hhi2[i]),c(ii,ii))
+lines(c(hlo[i],hlo[i]),c(ii-0.2,ii+0.2))
+lines(c(hhi[i],hhi[i]),c(ii-0.2,ii+0.2))
+}
+```
+
+
+```{r}
+pdata <- na.omit(data.frame(Codekind=factor(survey_results_public$MainBranch),work_type=factor(survey_results_public$RemoteWork)))
+levels(pdata$Codekind) <- c("Developer", "Learner"," Work", "Hobby","no longer developer","none")
+levels(pdata$work_type) <- c("Inperson", "Fully Remote","Hybrid")
+pdata <- droplevels(pdata)
+summary(pdata)
+usedata <- table(pdata$Codekind,pdata$work_type)
+usedata <- as.matrix(usedata)
+usedata2 <- usedata[-c(1,5),]
+usedata2
+dim(pdata)
+```
+```{r}
+haireye <-usedata2
+dat <- unname(haireye)
+haireye<-haireye/sum(haireye)# Summed over all groups
+dotchart(haireye,xlab="Relative Frequency",
+pch=20,lcolor="white")
+he<-c(dat[,3],dat[,2],dat[,1])
+nhe<-length(he)
+hesum<-sum(he)
+he<-he/sum(he)
+sd<-sqrt((1.-he)*he/hesum)
+hlo<-he-sd
+hhi<-he+sd
+sd2<-sd*qnorm(0.975)
+hlo2<-he-sd2
+hhi2<-he+sd2
+ii<- -2
+for (i in 1:nhe) {
+ii<- ii + ifelse ((i %% 3) == 1,3,1)
+lines(c(hlo2[i],hhi2[i]),c(ii,ii))
+lines(c(hlo[i],hlo[i]),c(ii-0.2,ii+0.2))
+lines(c(hhi[i],hhi[i]),c(ii-0.2,ii+0.2))
+}
+```
+```{r}
+haireye <-t(usedata2)
+dat <- unname(haireye)
+haireye<-haireye/sum(haireye)# Summed over all groups
+dotchart(haireye,xlab="Relative Frequency",
+pch=20,lcolor="white")
+he<-c(dat[,3],dat[,2],dat[,1])
+nhe<-length(he)
+hesum<-sum(he)
+he<-he/sum(he)
+sd<-sqrt((1.-he)*he/hesum)
+hlo<-he-sd
+hhi<-he+sd
+sd2<-sd*qnorm(0.975)
+hlo2<-he-sd2
+hhi2<-he+sd2
+ii<- -2
+for (i in 1:nhe) {
+ii<- ii + ifelse ((i %% 3) == 1,3,1)
+lines(c(hlo2[i],hhi2[i]),c(ii,ii))
+lines(c(hlo[i],hlo[i]),c(ii-0.2,ii+0.2))
+lines(c(hhi[i],hhi[i]),c(ii-0.2,ii+0.2))
+}
+```
+
+```{r}
+haireye<-usedata2
+haircol<-unlist(dimnames(haireye)[1])
+eyecol<-unlist(dimnames(haireye)[2])
+hair<-rep(" ",9)
+eye<-rep(" ",9)
+freq<-rep(0,9)
+n=0
+for (i in 1:3){ for (j in 1:3){
+n<-n+1
+hair[n]<-haircol[i]
+eye[n]<-eyecol[j]
+freq[n]<-haireye[i,j]
+}}
+hair<-factor(hair,levels=haircol,ordered=TRUE)
+eye<-factor(eye,levels=eyecol,ordered=TRUE)
+he<-freq
+nhe<-length(he)
+hesum<-sum(he)
+he<-he/sum(he)
+sd<-sqrt((1.-he)*he/hesum)
+hlo<-he-sd
+hhi<-he+sd
+sd2<-sd*qnorm(0.975) 
+hlo2<-he-sd2
+hhi2<-he+sd2
+haireyerf<-data.frame(hair=hair,eye=eye,he=he,
+hlo=hlo,hhi=hhi,hlo2=hlo2,hhi2=hhi2)
+figure<-ggplot(haireyerf,aes(x=hair,y=he)) +
+geom_pointrange(aes(shape=factor(eye,
+levels=rev(eyecol),ordered=TRUE),ymin=he,ymax=he,
+color=factor(eye,levels=rev(eyecol),ordered=TRUE)),
+position=position_dodge(width=0.7),linetype=0) +
+geom_errorbar(aes(ymin=hlo,ymax=hhi,
+color=factor(eye,levels=rev(eyecol),ordered=TRUE)),
+position=position_dodge(width=0.7),linetype=1,width=0.3)+
+geom_errorbar(aes(ymin=hlo2,ymax=hhi2,
+color=factor(eye,levels=rev(eyecol),ordered=TRUE)),
+position=position_dodge(width=0.5),linetype=1,width=0)+
+scale_shape_manual(values=15:18) +
+scale_color_manual(values=c("blue","green4",
+"darkgoldenrod3","brown4")) +
+labs(x="Hair Color",y="Relative Frequency",
+shape="Eye Color",color="Eye Color") +
+guides(shape=guide_legend(reverse=TRUE),
+color=guide_legend(reverse=TRUE)) +
+theme(panel.grid=element_blank()) +
+coord_flip()
+print(figure)
+```
+
+```{r}
+haireye<-usedata2
+haircol<-unlist(dimnames(haireye)[1])
+eyecol<-unlist(dimnames(haireye)[2])
+hair<-rep(" ",9)
+eye<-rep(" ",9)
+freq<-rep(0,9)
+n=0
+for (i in 1:3){ for (j in 1:3){
+n<-n+1
+hair[n]<-haircol[i]
+eye[n]<-eyecol[j]
+freq[n]<-haireye[i,j]
+}}
+hair<-factor(hair,levels=haircol,ordered=TRUE)
+eye<-factor(eye,levels=eyecol,ordered=TRUE)
+he<-freq
+nhe<-length(he)
+hesum<-sum(he)
+he<-he/sum(he)
+sd<-sqrt((1.-he)*he/hesum)
+hlo<-he-sd
+hhi<-he+sd
+sd2<-sd*qnorm(0.975) 
+hlo2<-he-sd2
+hhi2<-he+sd2
+haireyerf<-data.frame(hair=hair,eye=eye,he=he,
+hlo=hlo,hhi=hhi,hlo2=hlo2,hhi2=hhi2)
+figure<-ggplot(haireyerf,aes(x=hair,y=he)) +
+geom_pointrange(aes(shape=factor(eye,
+levels=rev(eyecol),ordered=TRUE),ymin=he,ymax=he,
+color=factor(eye,levels=rev(eyecol),ordered=TRUE)),
+position=position_dodge(width=0.7),linetype=0) +
+geom_errorbar(aes(ymin=hlo,ymax=hhi,
+color=factor(eye,levels=rev(eyecol),ordered=TRUE)),
+position=position_dodge(width=0.7),linetype=1,width=0.3)+
+geom_errorbar(aes(ymin=hlo2,ymax=hhi2,
+color=factor(eye,levels=rev(eyecol),ordered=TRUE)),
+position=position_dodge(width=0.7),linetype=1,width=0)+
+#scale_shape_manual(values=15:18) +
+scale_color_manual(values=c("blue","green4",
+"darkgoldenrod3","brown4","red")) +
+labs(x="Motivation for Coding",y="Relative Frequency",
+shape="Work Location",color="Work Location") +
+guides(shape=guide_legend(reverse=TRUE),
+color=guide_legend(reverse=TRUE)) +
+theme(panel.grid=element_blank()) +
+coord_flip()
+
+print(figure)
+```
+
+```{r}
+pdata33 <- na.omit(data.frame(Codekind=factor(survey_results_public$MainBranch),age=factor(survey_results_public$Age)))
+levels(pdata33$Codekind) <- c("Developer", "Learner"," Work", "Hobby","no longer developer","none")
+
+pdata33<- subset(pdata33, age=="Under 18 years old"|age =="18-24 years old"|age =="25-34 years old"|age=="35-44 years old"|age=="45-54 years old "|age=="55-64 years old")
+
+pdata33 <- droplevels(pdata33)
+summary(pdata33)
+usedata <- table(pdata33$Codekind,pdata33$age)
+usedata <- as.matrix(usedata)
+usedata2 <- usedata[-1,]
+usedata2
+```
+```{r}
+haireye <-usedata2
+dat <- unname(haireye)
+haireye<-haireye/sum(haireye)# Summed over all groups
+dotchart(haireye,xlab="Relative Frequency",
+pch=20,lcolor="white")
+he<-c(dat[,5],dat[,4],dat[,3],dat[,2],dat[,1])
+nhe<-length(he)
+hesum<-sum(he)
+he<-he/sum(he)
+sd<-sqrt((1.-he)*he/hesum)
+hlo<-he-sd
+hhi<-he+sd
+sd2<-sd*qnorm(0.975)
+hlo2<-he-sd2
+hhi2<-he+sd2
+ii<- -2
+for (i in 1:nhe) {
+ii<- ii + ifelse ((i %% 4) == 1,3,1)
+lines(c(hlo2[i],hhi2[i]),c(ii,ii))
+lines(c(hlo[i],hlo[i]),c(ii-0.2,ii+0.2))
+lines(c(hhi[i],hhi[i]),c(ii-0.2,ii+0.2))
+}
+```
+
+```{r}
+haireye<-usedata2
+haircol<-unlist(dimnames(haireye)[1])
+eyecol<-unlist(dimnames(haireye)[2])
+hair<-rep(" ",20)
+eye<-rep(" ",20)
+freq<-rep(0,20)
+n=0
+for (i in 1:4){ for (j in 1:5){
+n<-n+1
+hair[n]<-haircol[i]
+eye[n]<-eyecol[j]
+freq[n]<-haireye[i,j]
+}}
+hair<-factor(hair,levels=haircol,ordered=TRUE)
+eye<-factor(eye,levels=eyecol,ordered=TRUE)
+he<-freq
+nhe<-length(he)
+hesum<-sum(he)
+he<-he/sum(he)
+sd<-sqrt((1.-he)*he/hesum)
+hlo<-he-sd
+hhi<-he+sd
+sd2<-sd*qnorm(0.975) 
+hlo2<-he-sd2
+hhi2<-he+sd2
+haireyerf<-data.frame(hair=hair,eye=eye,he=he,
+hlo=hlo,hhi=hhi,hlo2=hlo2,hhi2=hhi2)
+figure<-ggplot(haireyerf,aes(x=hair,y=he)) +
+geom_pointrange(aes(shape=factor(eye,
+levels=rev(eyecol),ordered=TRUE),ymin=he,ymax=he,
+color=factor(eye,levels=rev(eyecol),ordered=TRUE)),
+position=position_dodge(width=0.7),linetype=0) +
+geom_errorbar(aes(ymin=hlo,ymax=hhi,
+color=factor(eye,levels=rev(eyecol),ordered=TRUE)),
+position=position_dodge(width=0.7),linetype=1,width=0.3)+
+geom_errorbar(aes(ymin=hlo2,ymax=hhi2,
+color=factor(eye,levels=rev(eyecol),ordered=TRUE)),
+position=position_dodge(width=0.7),linetype=1,width=0)+
+#scale_shape_manual(values=15:18) +
+scale_color_manual(values=c("blue","green4",
+"darkgoldenrod3","brown4","red")) +
+labs(x="Gender",y="Relative Frequency",
+shape="Coding Level",color="Coding Level") +
+guides(shape=guide_legend(reverse=TRUE),
+color=guide_legend(reverse=TRUE)) +
+theme(panel.grid=element_blank()) +
+coord_flip()
+
+print(figure)
+```
+
+
+```{r}
+library(dotwhisker)
+
+library(dplyr)
+# Plot regression coefficients from a single model object
+data(mtcars)
+m1 <- lm(mpg ~ wt + cyl + disp, data = mtcars)
+dwplot(m1, vline = geom_vline(xintercept = 0, colour = "red", linetype = 2)) +
+    xlab("Coefficient")
+# using 99% confidence interval
+dwplot(m1, ci = .99)
+# Plot regression coefficients from multiple models
+m2 <- update(m1, . ~ . - disp)
+dwplot(list(full = m1, nodisp = m2))
+# Change the appearance of dots and whiskers
+dwplot(m1, dot_args = list(size = 3, pch = 21, fill = "white"))
+# Plot regression coefficients from multiple models on the fly
+mtcars %>%
+    split(.$am) %>%
+    purrr::map(~ lm(mpg ~ wt + cyl + disp, data = .x)) %>%
+    dwplot() %>%
+    relabel_predictors(c(wt = "Weight", cyl = "Cylinders", disp = "Displacement")) +
+    theme_bw() + xlab("Coefficient") + ylab("") +
+    geom_vline(xintercept = 0, colour = "black", linetype = 2) +
+    ggtitle("Predicting Gas Mileage, OLS Estimates") +
+    theme(plot.title = element_text(face = "bold"),
+          legend.position = c(.995, .99),
+          legend.justification = c(1, 1),
+          legend.background = element_rect(colour="blue"),
+          legend.title.align = .5) +
+    scale_colour_hue(
+                      name = "Transmission",
+                      breaks = c("Model 0", "Model 1"),
+                      labels = c("Automatic", "Manual"))
+
+```
+
+https://www.ziprecruiter.com/Salaries/What-Is-the-Average-DATA-Scientist-Salary-by-State 
+https://www.ziprecruiter.com/Salaries/What-Is-the-Average-Assistant-Professor-Salary-by-State
+https://www.ziprecruiter.com/Salaries/What-Is-the-Average-People-Data-Analyst-Salary-by-State
+
+https://insights.stackoverflow.com/survey/
+
+https://www.ziprecruiter.com/Salaries/What-Is-the-Average-FULL-Stack-Software-Developer-Salary-by-State
